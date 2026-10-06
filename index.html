@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="自分で決めた一つの習慣を、今日の実行として記録するアプリ。">
+    <title>one stone</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div id="terms-modal" class="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-title" aria-describedby="terms-scroll" hidden>
+      <div class="terms-dialog">
+        <h1 id="terms-title">one stone 利用規約・確認事項</h1>
+        <div id="terms-scroll" class="terms-scroll" tabindex="0">
+          <p>施行日：2026年10月5日</p>
+          <ol>
+            <li>
+              <strong>このアプリについて</strong>
+              <p>このアプリは、あなたが自分で選んだ1つの習慣について、実行条件と完了基準を決め、実行を記録・観察するための簡易Webアプリです。</p>
+            </li>
+            <li>
+              <strong>利用について</strong>
+              <p>このアプリの利用・休止・中止は任意です。利用による効果や生活上の変化を保証するものではありません。利用する、休む、中止するは、自身の状況をもとに判断してください。</p>
+            </li>
+            <li>
+              <strong>安全について</strong>
+              <p>このアプリは、医療的な判断が必要なもの、危険・違法なもの、高いリスクを伴うものには使用しないでください。このアプリは医療その他の専門的な助言を提供しません。</p>
+            </li>
+            <li>
+              <strong>記録について</strong>
+              <p>当日の記録は、あなた自身が実行できたと判断したことを残すものです。第三者による実行事実の確認・保証を示すものではありません。当日のみ記録を追加・取消でき、過去日の記録は閲覧のみ可能です。</p>
+            </li>
+            <li>
+              <strong>記録の保存について</strong>
+              <p>習慣の設定と記録は、このブラウザ内に保存されます。アカウント登録やログインは必要ありません。別の端末や別のブラウザとは記録を共有できません。ブラウザのデータ削除や端末の故障などで記録が失われることがあります。運営側で記録を復元することはできません。</p>
+            </li>
+            <li>
+              <strong>アクセス解析について</strong>
+              <p>このアプリでは、Google Analyticsによるアクセス解析を使用します。</p>
+            </li>
+            <li>
+              <strong>利用規約の更新、サービスの停止・仕様変更</strong>
+              <p>この利用規約・確認事項を更新した場合は、更新後の内容を確認し、同意するまでアプリを利用できません。アプリは、保守、障害、仕様変更その他の事情により、停止または変更することがあります。</p>
+            </li>
+          </ol>
+        </div>
+        <label class="terms-read-label">
+          <input id="terms-read" type="checkbox" disabled>
+          <span>利用規約を読んだ</span>
+        </label>
+        <button id="terms-agree" class="terms-agree" type="button" disabled>同意して利用を開始する</button>
+        <p id="terms-error" class="terms-error" role="alert" hidden></p>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <main id="app-main" hidden>
+        <section id="setup-section" class="setup-section" aria-labelledby="setup-title">
+          <h1 id="setup-title">習慣を設定</h1>
+          <form id="setup-form" class="setup-form" novalidate>
+            <label for="habit-name">習慣名</label>
+            <input id="habit-name" name="habitName" type="text" maxlength="80" autocomplete="off" placeholder="例：24:20までに寝床につく" required>
+
+            <label for="habit-condition">実行条件</label>
+            <input id="habit-condition" name="condition" type="text" maxlength="240" autocomplete="off" placeholder="いつ、どんな条件で実行するか" required>
+
+            <label for="habit-criteria">完了基準</label>
+            <input id="habit-criteria" name="criteria" type="text" maxlength="240" autocomplete="off" placeholder="何ができたら実行完了とするか" required>
+
+            <button type="submit">保存</button>
+          </form>
+        </section>
+
+        <section id="table-section" class="database-view" aria-labelledby="database-title" hidden>
+          <div class="database-heading">
+            <h1 id="database-title" class="database-title">
+              <span class="database-icon" aria-hidden="true">▦</span>
+              <span>one stone</span>
+            </h1>
+          </div>
+
+          <div class="record-actions">
+            <button id="today-record" class="today-record" type="button">今日の記録</button>
+          </div>
+
+          <p id="empty-state" class="empty-state" hidden>今日の記録を作成すると、ここに表示されます。</p>
+
+          <div id="record-table-container" class="table-scroll">
+            <table class="record-table">
+              <thead>
+                <tr>
+                  <th scope="col">日付</th>
+                  <th id="habit-column" scope="col">習慣</th>
+                </tr>
+              </thead>
+              <tbody id="records-body"></tbody>
+            </table>
+          </div>
+          <p id="table-status" class="sr-only" aria-live="polite"></p>
+        </section>
+
+        <p id="app-error" class="app-error" role="alert" hidden></p>
+      </main>
+    </div>
+  </body>
+</html>
