@@ -7,8 +7,21 @@
   const RECORDS_STORE = "records";
   const HABIT_KEY = "habit";
   const TERMS_CONSENT_KEY = "terms-consent";
-  const TERMS_VERSION = "v2";
+  const TERMS_VERSION = "v3";
   const GA_MEASUREMENT_ID = "G-QW6L40SBLK";
+  const SURVEY_ENDPOINT = "https://script.google.com/macros/s/AKfycbwi_CKjCa2iERQTk2m4r4NPgA0zW4FLQqDisv1IuqDpqbPC6t8vWj-H2ogVdyekHw6MJw/exec";
+  const SURVEY_VERSION = "s1";
+  const APP_VERSION = "a1";
+  const SURVEY_STATE_KEY = "survey-state";
+  const SURVEY_PROMPT_DELAY_MS = 2000;
+  const SURVEY_COMMENT_MAX = 500;
+  const SURVEY_POST_TIMEOUT_MS = 15000;
+  const SURVEY_QUESTIONS = [
+    { id: "q1", text: "今日のチェックで、実行を形に残せた実感があった", reachedOnly: true },
+    { id: "q2", text: "設定から記録まで、迷わず進められた", reachedOnly: false },
+    { id: "q3", text: "操作の負担は小さかった", reachedOnly: false },
+    { id: "q4", text: "今日の習慣は、無理や不安なく行えた", reachedOnly: true }
+  ];
 
   let database;
   let currentHabit;
@@ -16,6 +29,9 @@
   let termsEndReached = false;
   let analyticsLoadPromise;
   let analyticsEnabled = false;
+  let surveyPromptTimer;
+  let surveyPromptNo = 0;
+  let survey = null;
 
   const elements = {};
 
@@ -36,6 +52,29 @@
     elements.tableStatus = document.getElementById("table-status");
     elements.todayRecord = document.getElementById("today-record");
     elements.error = document.getElementById("app-error");
+    elements.surveyOpen = document.getElementById("survey-open");
+    elements.surveyPrompt = document.getElementById("survey-prompt");
+    elements.surveyPromptAnswer = document.getElementById("survey-prompt-answer");
+    elements.surveyPromptLater = document.getElementById("survey-prompt-later");
+    elements.surveyPromptDecline = document.getElementById("survey-prompt-decline");
+    elements.surveyModal = document.getElementById("survey-modal");
+    elements.surveyClose = document.getElementById("survey-close");
+    elements.surveyForm = document.getElementById("survey-form");
+    elements.surveyNotice = document.getElementById("survey-notice");
+    elements.surveyProgress = document.getElementById("survey-progress");
+    elements.surveyQuestionBlock = document.getElementById("survey-question-block");
+    elements.surveyQuestionText = document.getElementById("survey-question-text");
+    elements.surveyScale = document.getElementById("survey-scale");
+    elements.surveyCommentBlock = document.getElementById("survey-comment-block");
+    elements.surveyComment = document.getElementById("survey-comment");
+    elements.surveyCommentCount = document.getElementById("survey-comment-count");
+    elements.surveyWebsite = document.getElementById("survey-website");
+    elements.surveyError = document.getElementById("survey-error");
+    elements.surveyBack = document.getElementById("survey-back");
+    elements.surveyNext = document.getElementById("survey-next");
+    elements.surveySubmit = document.getElementById("survey-submit");
+    elements.surveyDone = document.getElementById("survey-done");
+    elements.surveyDoneClose = document.getElementById("survey-done-close");
 
     elements.setupForm.addEventListener("submit", handleHabitSubmit);
     elements.recordsBody.addEventListener("change", handleRecordChange);
@@ -45,6 +84,21 @@
     elements.termsAgree.addEventListener("click", handleTermsAgree);
     document.addEventListener("keydown", handleTermsKeydown);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    elements.surveyOpen.addEventListener("click", handleSurveyOpenClick);
+    elements.surveyPromptAnswer.addEventListener("click", handleSurveyPromptAnswer);
+    elements.surveyPromptLater.addEventListener("click", handleSurveyPromptLater);
+    elements.surveyPromptDecline.addEventListener("click", handleSurveyPromptDecline);
+    elements.surveyClose.addEventListener("click", closeSurvey);
+    elements.surveyDoneClose.addEventListener("click", closeSurvey);
+    elements.surveyScale.addEventListener("change", handleSurveyScaleChange);
+    elements.surveyComment.addEventListener("input", handleSurveyCommentInput);
+    elements.surveyBack.addEventListener("click", handleSurveyBack);
+    elements.surveyNext.addEventListener("click", handleSurveyNext);
+    elements.surveySubmit.addEventListener("click", submitSurvey);
+    elements.surveyForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+    });
+    document.addEventListener("keydown", handleSurveyKeydown);
 
     initialise();
   });
@@ -66,6 +120,7 @@
     } catch (error) {
       trackError("app_initialization");
       elements.appMain.hidden = false;
+      elements.surveyOpen.hidden = true;
       showError("このブラウザに記録を保存できません。IndexedDBが利用できる環境で開いてください。");
       console.error(error);
     }
@@ -82,6 +137,8 @@
     } else {
       showSetup();
     }
+
+    refreshSurveyButton();
   }
 
   function openDatabase() {
@@ -316,6 +373,9 @@
       trackEvent(checked ? "one_stone_check_add" : "one_stone_check_cancel");
       announce(checked ? "今日の実行を記録しました。" : "今日の記録を取り消しました。");
       await refreshRecords();
+      if (checked) {
+        scheduleSurveyPrompt();
+      }
     } catch (error) {
       checkbox.checked = !checked;
       trackError("indexeddb_write");
@@ -491,6 +551,394 @@
     });
 
     return analyticsLoadPromise;
+  }
+
+  // ---- アンケート（仕様：アンケート/アンケート仕様.md） ----
+
+  function getSurveyState() {
+    const transaction = database.transaction(SETTINGS_STORE, "readonly");
+    return requestAsPromise(transaction.objectStore(SETTINGS_STORE).get(SURVEY_STATE_KEY)).then(function (state) {
+      return Object.assign({
+        id: SURVEY_STATE_KEY,
+        status: "none",
+        shownCount: 0,
+        firstShownDate: "",
+        lastShownDate: "",
+        everChecked: false
+      }, state || {});
+    });
+  }
+
+  function saveSurveyState(state) {
+    const transaction = database.transaction(SETTINGS_STORE, "readwrite");
+    return requestAsPromise(transaction.objectStore(SETTINGS_STORE).put(state));
+  }
+
+  async function patchSurveyState(patch) {
+    const state = await getSurveyState();
+    const next = Object.assign(state, patch);
+    await saveSurveyState(next);
+    return next;
+  }
+
+  async function refreshSurveyButton() {
+    try {
+      const state = await getSurveyState();
+      elements.surveyOpen.hidden = state.status === "answered";
+    } catch (error) {
+      elements.surveyOpen.hidden = false;
+    }
+  }
+
+  function canShowSurveyPrompt(state) {
+    return (state.status === "none" || state.status === "later") &&
+      state.shownCount < 2 &&
+      state.lastShownDate !== todayKey;
+  }
+
+  async function scheduleSurveyPrompt() {
+    try {
+      const state = await getSurveyState();
+      if (!state.everChecked) {
+        state.everChecked = true;
+        await saveSurveyState(state);
+      }
+
+      if (!canShowSurveyPrompt(state)) {
+        return;
+      }
+
+      window.clearTimeout(surveyPromptTimer);
+      surveyPromptTimer = window.setTimeout(showSurveyPrompt, SURVEY_PROMPT_DELAY_MS);
+    } catch (error) {
+      console.warn("The survey prompt could not be scheduled.", error);
+    }
+  }
+
+  async function showSurveyPrompt() {
+    try {
+      if (!elements.surveyModal.hidden || !elements.surveyPrompt.hidden) {
+        return;
+      }
+
+      const checkbox = elements.recordsBody.querySelector('input[data-date="' + todayKey + '"]');
+      if (!checkbox || !checkbox.checked) {
+        return;
+      }
+
+      const state = await getSurveyState();
+      if (!canShowSurveyPrompt(state)) {
+        return;
+      }
+
+      surveyPromptNo = state.shownCount + 1;
+      await saveSurveyState(Object.assign(state, {
+        shownCount: surveyPromptNo,
+        status: "later",
+        firstShownDate: state.firstShownDate || todayKey,
+        lastShownDate: todayKey
+      }));
+
+      elements.surveyPromptLater.hidden = surveyPromptNo >= 2;
+      elements.surveyPrompt.hidden = false;
+      trackEvent("one_stone_survey_prompt_view", { prompt_no: String(surveyPromptNo) });
+    } catch (error) {
+      console.warn("The survey prompt could not be shown.", error);
+    }
+  }
+
+  function hideSurveyPrompt() {
+    window.clearTimeout(surveyPromptTimer);
+    elements.surveyPrompt.hidden = true;
+  }
+
+  function handleSurveyPromptAnswer() {
+    hideSurveyPrompt();
+    openSurvey("prompt" + surveyPromptNo);
+  }
+
+  function handleSurveyPromptLater() {
+    hideSurveyPrompt();
+    trackEvent("one_stone_survey_later");
+  }
+
+  function handleSurveyPromptDecline() {
+    hideSurveyPrompt();
+    trackEvent("one_stone_survey_decline");
+    patchSurveyState({ status: "declined" }).catch(function (error) {
+      console.warn("The survey state could not be saved.", error);
+    });
+  }
+
+  function dismissSurveyPrompt() {
+    if (surveyPromptNo >= 2) {
+      handleSurveyPromptDecline();
+    } else {
+      handleSurveyPromptLater();
+    }
+  }
+
+  function handleSurveyOpenClick() {
+    openSurvey("button");
+  }
+
+  function createSurveyId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+
+    return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
+
+  async function openSurvey(source) {
+    let reached = false;
+    try {
+      const state = await getSurveyState();
+      reached = state.everChecked === true;
+    } catch (error) {
+      console.warn("The survey state could not be read.", error);
+    }
+
+    survey = {
+      rid: createSurveyId(),
+      source: source,
+      startedAt: Date.now(),
+      reached: reached,
+      questions: SURVEY_QUESTIONS.filter(function (question) {
+        return reached || !question.reachedOnly;
+      }),
+      step: 0,
+      answers: {},
+      partialPromise: null,
+      submitting: false,
+      opener: document.activeElement
+    };
+
+    elements.surveyComment.value = "";
+    elements.surveyWebsite.value = "";
+    elements.surveyCommentCount.textContent = "0 / " + SURVEY_COMMENT_MAX;
+    elements.surveyForm.hidden = false;
+    elements.surveyDone.hidden = true;
+    elements.surveyModal.hidden = false;
+    document.body.classList.add("survey-open");
+    trackEvent("one_stone_survey_start", { survey_source: source === "button" ? "button" : "prompt" });
+    renderSurveyStep();
+  }
+
+  function renderSurveyStep() {
+    const questionCount = survey.questions.length;
+    const isCommentStep = survey.step >= questionCount;
+
+    elements.surveyProgress.textContent = (survey.step + 1) + " / " + (questionCount + 1);
+    elements.surveyNotice.hidden = survey.step !== 0;
+    elements.surveyQuestionBlock.hidden = isCommentStep;
+    elements.surveyCommentBlock.hidden = !isCommentStep;
+    elements.surveyBack.hidden = survey.step === 0;
+    elements.surveyNext.hidden = isCommentStep;
+    elements.surveySubmit.hidden = !isCommentStep;
+    elements.surveyError.hidden = true;
+    elements.surveyError.textContent = "";
+
+    if (isCommentStep) {
+      elements.surveyComment.focus();
+      return;
+    }
+
+    const question = survey.questions[survey.step];
+    const selected = survey.answers[question.id];
+    elements.surveyQuestionText.textContent = question.text;
+    elements.surveyScale.querySelectorAll("input").forEach(function (input) {
+      input.checked = selected === Number(input.value);
+    });
+    elements.surveyNext.disabled = !selected;
+
+    const target = elements.surveyScale.querySelector("input:checked") || elements.surveyScale.querySelector("input");
+    target.focus();
+  }
+
+  function handleSurveyScaleChange(event) {
+    if (!survey || !event.target.matches("input")) {
+      return;
+    }
+
+    const question = survey.questions[survey.step];
+    survey.answers[question.id] = Number(event.target.value);
+    elements.surveyNext.disabled = false;
+
+    if (survey.step === 0 && !survey.partialPromise) {
+      sendPartialSurvey();
+    }
+  }
+
+  function handleSurveyCommentInput() {
+    elements.surveyCommentCount.textContent = elements.surveyComment.value.length + " / " + SURVEY_COMMENT_MAX;
+  }
+
+  function handleSurveyBack() {
+    if (survey && survey.step > 0) {
+      survey.step -= 1;
+      renderSurveyStep();
+    }
+  }
+
+  function handleSurveyNext() {
+    if (survey && survey.step < survey.questions.length) {
+      survey.step += 1;
+      renderSurveyStep();
+    }
+  }
+
+  function buildSurveyPayload(complete) {
+    const payload = {
+      rid: survey.rid,
+      survey_version: SURVEY_VERSION,
+      app_version: APP_VERSION,
+      reached_check: survey.reached ? "yes" : "no",
+      source: survey.source,
+      complete: complete ? "true" : "false",
+      elapsed_sec: String(Math.min(86400, Math.max(0, Math.round((Date.now() - survey.startedAt) / 1000))))
+    };
+
+    survey.questions.forEach(function (question) {
+      if (survey.answers[question.id]) {
+        payload[question.id] = String(survey.answers[question.id]);
+      }
+    });
+
+    const comment = elements.surveyComment.value.trim().slice(0, SURVEY_COMMENT_MAX);
+    if (comment) {
+      payload.comment = comment;
+    }
+
+    return payload;
+  }
+
+  async function postSurvey(payload) {
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? window.setTimeout(function () {
+      controller.abort();
+    }, SURVEY_POST_TIMEOUT_MS) : 0;
+
+    try {
+      const response = await fetch(SURVEY_ENDPOINT, {
+        method: "POST",
+        body: new URLSearchParams(payload),
+        signal: controller ? controller.signal : undefined
+      });
+      const result = await response.json();
+      return Boolean(result && result.ok === true);
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  function sendPartialSurvey() {
+    if (elements.surveyWebsite.value) {
+      return;
+    }
+
+    survey.partialPromise = postSurvey(buildSurveyPayload(false)).catch(function (error) {
+      console.warn("The partial survey answer could not be sent.", error);
+      return false;
+    });
+  }
+
+  async function submitSurvey() {
+    if (!survey || survey.submitting) {
+      return;
+    }
+
+    if (elements.surveyWebsite.value) {
+      showSurveyDone();
+      return;
+    }
+
+    survey.submitting = true;
+    elements.surveySubmit.disabled = true;
+    elements.surveyError.hidden = true;
+    elements.surveyError.textContent = "";
+
+    try {
+      if (survey.partialPromise) {
+        await survey.partialPromise;
+      }
+
+      const accepted = await postSurvey(buildSurveyPayload(true));
+      if (!accepted) {
+        throw new Error("The survey endpoint did not accept the answer.");
+      }
+
+      await patchSurveyState({ status: "answered" }).catch(function (error) {
+        console.warn("The survey state could not be saved.", error);
+      });
+      trackEvent("one_stone_survey_submit", { survey_source: survey.source === "button" ? "button" : "prompt" });
+      showSurveyDone();
+    } catch (error) {
+      elements.surveyError.textContent = "送信できませんでした。通信をご確認のうえ、もう一度お試しください";
+      elements.surveyError.hidden = false;
+      console.warn("The survey answer could not be sent.", error);
+    } finally {
+      survey.submitting = false;
+      elements.surveySubmit.disabled = false;
+    }
+  }
+
+  function showSurveyDone() {
+    elements.surveyForm.hidden = true;
+    elements.surveyDone.hidden = false;
+    elements.surveyOpen.hidden = true;
+    elements.surveyDoneClose.focus();
+  }
+
+  function closeSurvey() {
+    if (!survey || survey.submitting) {
+      return;
+    }
+
+    const opener = survey.opener;
+    survey = null;
+    elements.surveyModal.hidden = true;
+    document.body.classList.remove("survey-open");
+
+    if (opener && document.contains(opener) && typeof opener.focus === "function" && !opener.hidden) {
+      opener.focus();
+    }
+  }
+
+  function handleSurveyKeydown(event) {
+    if (!elements.surveyModal.hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSurvey();
+      } else if (event.key === "Tab") {
+        trapSurveyFocus(event);
+      }
+      return;
+    }
+
+    if (event.key === "Escape" && !elements.surveyPrompt.hidden && elements.surveyPrompt.contains(document.activeElement)) {
+      event.preventDefault();
+      dismissSurveyPrompt();
+    }
+  }
+
+  function trapSurveyFocus(event) {
+    const focusable = Array.from(elements.surveyModal.querySelectorAll("button, input, textarea")).filter(function (element) {
+      return !element.disabled && !element.closest("[hidden]") && element.tabIndex >= 0;
+    });
+    if (focusable.length === 0) {
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   async function refreshRecords() {

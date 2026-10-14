@@ -13,7 +13,7 @@
       <div class="terms-dialog">
         <h1 id="terms-title">one stone 利用規約・確認事項</h1>
         <div id="terms-scroll" class="terms-scroll" tabindex="0">
-          <p>施行日：2026年10月5日</p>
+          <p>施行日：2026年10月14日</p>
           <ol>
             <li>
               <strong>このアプリについて</strong>
@@ -37,7 +37,16 @@
             </li>
             <li>
               <strong>アクセス解析について</strong>
-              <p>このアプリでは、Google Analyticsによるアクセス解析を使用します。</p>
+              <p>このアプリでは、Google Analyticsによるアクセス解析を使用します。習慣の内容や記録の内容は送信しません。</p>
+            </li>
+            <li>
+              <strong>アンケートについて</strong>
+              <p>このアプリには、任意のアンケートがあります。答えなくても利用できます。</p>
+              <p>回答は匿名で、運営者が管理するGoogleのサービス（Google Apps Script、Googleスプレッドシート）に送信・保存されます。送信するのは、5段階の選択式の回答、任意の自由記述、チェックを付けたことがあるか、回答にかかった時間、アプリの版です。習慣の内容、記録の日付、氏名・連絡先などは送信しません。回答を選んだ時点で、その回答が送信されます。</p>
+              <p>自由記述には、氏名・連絡先・健康状態の詳細など、個人情報を書かないでください。</p>
+              <p>回答は、このアプリの改善と検証の判断に使います。公開する場合は、集計または要約のみにします。自由記述は評価の記録後に削除し、すべての回答は最終回答から12か月で削除します。</p>
+              <p>回答は匿名のため、送信後に特定の回答を探して削除することはできません。</p>
+              <p>アンケートの表示や操作の状況（回答の内容は含みません）も、アクセス解析の対象です。</p>
             </li>
             <li>
               <strong>利用規約の更新、サービスの停止・仕様変更</strong>
@@ -101,7 +110,73 @@
         </section>
 
         <p id="app-error" class="app-error" role="alert" hidden></p>
+
+        <footer class="app-footer">
+          <button id="survey-open" class="link-button" type="button">感想を送る</button>
+        </footer>
       </main>
+
+      <section id="survey-prompt" class="survey-prompt" role="region" aria-live="polite" aria-labelledby="survey-prompt-title" hidden>
+        <p id="survey-prompt-title" class="survey-prompt-title">今日の実行を形に残せました</p>
+        <p class="survey-prompt-text">選択式の感想を、1分以内に教えてください（任意）</p>
+        <div class="survey-prompt-actions">
+          <button id="survey-prompt-answer" class="survey-primary" type="button">答える</button>
+          <button id="survey-prompt-later" class="survey-secondary" type="button">あとで</button>
+          <button id="survey-prompt-decline" class="survey-secondary" type="button">今回は答えない</button>
+        </div>
+      </section>
+
+      <div id="survey-modal" class="survey-modal" hidden>
+        <div class="survey-dialog" role="dialog" aria-modal="true" aria-labelledby="survey-title">
+          <div class="survey-head">
+            <h1 id="survey-title">感想を教えてください</h1>
+            <button id="survey-close" class="survey-close" type="button" aria-label="閉じる">×</button>
+          </div>
+
+          <form id="survey-form" class="survey-form" novalidate>
+            <p id="survey-notice" class="survey-notice">回答は匿名で、Googleのサービスに送信・保存されます。氏名・連絡先・健康状態の詳細など、個人情報は書かないでください。回答は任意で、いつでも中止できます。</p>
+            <p id="survey-progress" class="survey-progress"></p>
+
+            <fieldset id="survey-question-block" class="survey-question">
+              <legend id="survey-question-text"></legend>
+              <div id="survey-scale" class="survey-scale">
+                <label><input type="radio" name="survey-score" value="1" aria-label="1 まったくそう思わない"><span>1</span></label>
+                <label><input type="radio" name="survey-score" value="2" aria-label="2 そう思わない"><span>2</span></label>
+                <label><input type="radio" name="survey-score" value="3" aria-label="3 どちらとも言えない"><span>3</span></label>
+                <label><input type="radio" name="survey-score" value="4" aria-label="4 そう思う"><span>4</span></label>
+                <label><input type="radio" name="survey-score" value="5" aria-label="5 とてもそう思う"><span>5</span></label>
+              </div>
+              <div class="survey-scale-ends" aria-hidden="true">
+                <span>まったくそう思わない</span>
+                <span>とてもそう思う</span>
+              </div>
+            </fieldset>
+
+            <div id="survey-comment-block" class="survey-comment" hidden>
+              <label for="survey-comment">気づいたこと、困ったこと、ご意見があればご自由に（任意）</label>
+              <textarea id="survey-comment" maxlength="500" rows="5"></textarea>
+              <p id="survey-comment-count" class="survey-comment-count">0 / 500</p>
+            </div>
+
+            <div class="survey-website" aria-hidden="true">
+              <label>website <input id="survey-website" type="text" tabindex="-1" autocomplete="off"></label>
+            </div>
+
+            <p id="survey-error" class="survey-error" role="alert" hidden></p>
+
+            <div class="survey-actions">
+              <button id="survey-back" class="survey-secondary" type="button" hidden>戻る</button>
+              <button id="survey-next" class="survey-primary" type="button">次へ</button>
+              <button id="survey-submit" class="survey-primary" type="button" hidden>送信</button>
+            </div>
+          </form>
+
+          <div id="survey-done" class="survey-done" hidden>
+            <p>ありがとうございます。次の改善の検討材料にさせて頂きます。</p>
+            <button id="survey-done-close" class="survey-primary" type="button">閉じる</button>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
