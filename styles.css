@@ -646,6 +646,228 @@ body.survey-open {
   }
 }
 
+/* 見た目の調整（落ち着いたミニマル）。構造・文言・動作は変えず、色・余白・形だけを上書きする。 */
+:root {
+  --ink: #2a2c2b;
+  --muted: #666b67;
+  --line: #e7e3dc;
+  --header: #f3f0ea;
+  --paper: #ffffff;
+  --accent: #3f7d73;
+  --focus: rgba(63, 125, 115, 0.28);
+}
+
+body {
+  background: #f4f1ec;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.app-shell {
+  padding: 0.9rem 0.75rem 2rem;
+  background: transparent;
+}
+
+.database-view {
+  padding: 1.1rem 1rem 1.2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 14px rgba(60, 52, 40, 0.08);
+}
+
+.database-heading {
+  padding: 0.1rem 0 0.9rem;
+}
+
+.database-title {
+  gap: 0.6rem;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.database-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  font-size: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 21c0-7 5-13 13-13 7 0 11 5 11 11 0 5-5 8-12 8-7 0-12-2-12-6z' fill='%233f7d73'/%3E%3Cpath d='M10 16c2-3 5-4 8-3' stroke='%23ffffff' stroke-opacity='.55' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.record-actions {
+  padding: 0 0 1rem;
+}
+
+.today-record {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.85rem 1rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: 1.5rem 0.8rem;
+  border-radius: 12px;
+}
+
+.table-scroll {
+  border: 0;
+}
+
+.record-table {
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.record-table th,
+.record-table td {
+  height: 3.1rem;
+  padding: 0.4rem 0.5rem;
+  border-right: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.record-table th {
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.record-table tr.is-today td {
+  background: #eef5f3;
+}
+
+.record-table tr.is-today td:first-child {
+  border-radius: 10px 0 0 10px;
+}
+
+.record-table tr.is-today td:last-child {
+  border-radius: 0 10px 10px 0;
+}
+
+.check-cell input,
+.terms-read-label input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: 2px solid #cdc7bd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.check-cell input:checked,
+.terms-read-label input:checked {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E") center / 80% no-repeat;
+  border-color: var(--accent);
+}
+
+.check-cell input:disabled:checked {
+  background-color: #a9c9c3;
+  border-color: #a9c9c3;
+}
+
+.check-cell input:disabled:not(:checked) {
+  background: #faf8f5;
+  border-color: #e2ddd4;
+}
+
+.terms-read-label input:disabled {
+  background: #faf8f5;
+  border-color: #e2ddd4;
+  cursor: default;
+}
+
+.setup-section {
+  margin-top: 2.5rem;
+  padding: 1.4rem 1.2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 14px rgba(60, 52, 40, 0.08);
+}
+
+.setup-section h1 {
+  font-size: 1.4rem;
+}
+
+.setup-form input {
+  padding: 0.75rem 0.8rem;
+  background: #fbfaf7;
+  border-radius: 10px;
+}
+
+.setup-form button {
+  min-height: 48px;
+  padding: 0.8rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.terms-modal {
+  background: rgba(46, 42, 36, 0.55);
+}
+
+.terms-dialog {
+  padding: 1.5rem;
+  border-radius: 18px;
+}
+
+.terms-dialog h1 {
+  font-size: 1.3rem;
+}
+
+.terms-scroll {
+  padding: 1rem 1.1rem;
+  background: #fcfbf9;
+  border-radius: 12px;
+  line-height: 1.7;
+}
+
+.terms-agree {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.85rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.survey-dialog {
+  padding: 1.4rem;
+  border-radius: 18px;
+}
+
+.survey-scale span {
+  border-radius: 12px;
+}
+
+.survey-comment textarea {
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+}
+
+.survey-primary,
+.survey-secondary {
+  border-radius: 999px;
+}
+
+.survey-prompt {
+  border-radius: 16px;
+}
+
+.app-footer {
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .setup-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 520px) {
   .setup-section {
     margin-top: 3rem;
