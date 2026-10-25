@@ -10,14 +10,14 @@
   const TERMS_VERSION = "v3";
   const GA_MEASUREMENT_ID = "G-QW6L40SBLK";
   const SURVEY_ENDPOINT = "https://script.google.com/macros/s/AKfycbwi_CKjCa2iERQTk2m4r4NPgA0zW4FLQqDisv1IuqDpqbPC6t8vWj-H2ogVdyekHw6MJw/exec";
-  const SURVEY_VERSION = "s1";
+  const SURVEY_VERSION = "s2";
   const APP_VERSION = "a1";
   const SURVEY_STATE_KEY = "survey-state";
   const SURVEY_PROMPT_DELAY_MS = 2000;
   const SURVEY_COMMENT_MAX = 500;
   const SURVEY_POST_TIMEOUT_MS = 15000;
   const SURVEY_QUESTIONS = [
-    { id: "q1", text: "今日のチェックで、実行を形に残せた実感があった", reachedOnly: true },
+    { id: "q1", text: "今日のチェックで、「今日はできた」と自分を認められた", reachedOnly: true },
     { id: "q2", text: "設定から記録まで、迷わず進められた", reachedOnly: false },
     { id: "q3", text: "操作の負担は小さかった", reachedOnly: false },
     { id: "q4", text: "今日の習慣は、無理や不安なく行えた", reachedOnly: true }
